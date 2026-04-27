@@ -1,0 +1,18 @@
+# 環境変数（APIキーを絶対にコミットしない）
+.env
+
+# 生成物
+output/
+data/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# macOS
+.DS_Store
+
+# ログ（posted_pmids.json はGitHub Actionsが更新するので除外しない）
+logs/*.log
