@@ -174,18 +174,26 @@ def s1_hook(d):
     body = f"""
 <div class="slide" style="background:linear-gradient(155deg,{dark} 0%,{mid} 100%)">
   {_hdr_dark(1)}
-  <div style="height:2px;background:rgba(255,255,255,.25);margin:14px 52px;flex-shrink:0"></div>
+  <div style="height:2px;background:rgba(255,255,255,.25);margin:14px 60px;flex-shrink:0"></div>
+
+  <!-- Decorative dots -->
+  <div style="display:flex;align-items:center;gap:7px;padding:0 60px;flex-shrink:0;margin-bottom:14px">
+    <div style="width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.6)"></div>
+    <div style="width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.35)"></div>
+    <div style="width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.18)"></div>
+    <div style="flex:1;height:1px;background:rgba(255,255,255,.12)"></div>
+  </div>
 
   <!-- Badge row -->
   <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;
-              padding:0 52px;margin-bottom:16px">
+              padding:0 60px;margin-bottom:16px">
     {_badge(st, "rgba(255,255,255,.25)")}
     <span style="font-size:17px;color:rgba(255,255,255,.65)">{j} &nbsp;·&nbsp; {y}</span>
   </div>
 
   <!-- Title hero -->
   <div style="flex:1;min-height:0;display:flex;flex-direction:column;
-              justify-content:center;padding:0 52px;gap:24px">
+              justify-content:center;padding:0 60px;gap:28px">
     <div style="font-size:62px;font-weight:900;color:#FFFFFF;line-height:1.4;
                 overflow:hidden" class="c4">{title}</div>
 
@@ -200,7 +208,7 @@ def s1_hook(d):
   </div>
 
   <!-- CTA + citation -->
-  <div style="padding:16px 52px 12px;flex-shrink:0">
+  <div style="padding:16px 60px 12px;flex-shrink:0">
     <div style="font-size:17px;font-weight:700;color:rgba(255,255,255,.55);
                 margin-bottom:10px">スライドをスワイプして詳細を見る &nbsp;▶</div>
     {f'<div style="font-size:13px;color:rgba(255,255,255,.3);line-height:1.4">{cit}</div>' if cit else ''}
@@ -257,8 +265,8 @@ def s2_keyfinding(d):
     bottom = ""
     if has_stats:
         bottom = f"""
-<div style="flex:1;min-height:0;background:{dark};display:flex;flex-direction:column;
-            justify-content:center;padding:24px 52px;gap:12px">
+<div style="flex-shrink:0;background:{dark};padding:28px 60px 32px;display:flex;
+            flex-direction:column;gap:14px">
   {compare_html}
   {pills}
 </div>"""
@@ -278,8 +286,8 @@ def s2_keyfinding(d):
   {_hdr_light(2, dark, mid)}
 
   <!-- Top: white — KF + impact -->
-  <div style="{'flex:1' if not has_stats else ''};min-height:0;display:flex;
-              flex-direction:column;justify-content:center;padding:22px 52px;overflow:hidden">
+  <div style="flex:1;min-height:0;display:flex;
+              flex-direction:column;justify-content:center;padding:22px 60px;overflow:hidden">
     <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;margin-bottom:14px">
       {_badge(st, dark)}
       <span style="font-size:14px;color:#64748B">
@@ -328,11 +336,11 @@ def s3_background(d):
 <div class="slide" style="background:#FFFFFF">
   {_hdr_light(3, dark, mid)}
 
-  <div style="padding:16px 52px 0;flex-shrink:0">
+  <div style="padding:16px 60px 0;flex-shrink:0">
     <div style="font-size:50px;font-weight:900;color:{dark}">なぜこの研究？</div>
   </div>
 
-  <div style="flex:1;min-height:0;padding:20px 52px 20px;overflow:hidden;
+  <div style="flex:1;min-height:0;padding:20px 60px 20px;overflow:hidden;
               display:flex;flex-direction:column">
     {chip}BACKGROUND</span>
     <div style="font-size:40px;color:#1E293B;line-height:1.6;overflow:hidden;flex-shrink:0"
@@ -354,10 +362,10 @@ def s4_pico(d):
     design = d.get('design', '')
 
     pico = [
-        ("P", "Population",   d.get('population',''),   "#1D4ED8", "#DBEAFE"),
-        ("I", "Intervention", d.get('intervention',''), "#B91C1C", "#FEE2E2"),
-        ("C", "Comparison",   d.get('comparison',''),   "#B45309", "#FEF3C7"),
-        ("O", "Outcome",      d.get('outcome',''),      "#065F46", "#D1FAE5"),
+        ("P", "Population",   d.get('population',''),   dark, light),
+        ("I", "Intervention", d.get('intervention',''), dark, "#FFFFFF"),
+        ("C", "Comparison",   d.get('comparison',''),   mid,  light),
+        ("O", "Outcome",      d.get('outcome',''),      mid,  "#FFFFFF"),
     ]
     items = [(l, lb, v, fg, bg) for (l, lb, v, fg, bg) in pico if v]
     n = len(items) or 1
@@ -384,7 +392,7 @@ def s4_pico(d):
     body = f"""
 <div class="slide" style="background:#FFFFFF">
   {_hdr_light(4, dark, mid)}
-  <div style="flex-shrink:0;padding:12px 52px 10px;display:flex;align-items:center;gap:12px">
+  <div style="flex-shrink:0;padding:12px 60px 10px;display:flex;align-items:center;gap:12px">
     <span style="font-size:38px;font-weight:900;color:{dark}">PICO &nbsp;/&nbsp; Methods</span>
     {dbadge}
   </div>
@@ -462,10 +470,16 @@ def s5_results(d):
 <div class="slide" style="background:#FFFFFF">
   {_hdr_light(5, dark, mid)}
 
-  <div style="flex:1;display:flex;flex-direction:column;padding:18px 52px 16px;
-              gap:14px;overflow:hidden;min-height:0">
-    <div style="font-size:36px;font-weight:900;color:{dark};flex-shrink:0">
-      📊 &nbsp;Results
+  <div style="flex:1;display:flex;flex-direction:column;padding:18px 60px 16px;
+              gap:16px;overflow:hidden;min-height:0">
+    <!-- Decorative accent + title -->
+    <div style="flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <div style="width:10px;height:10px;border-radius:50%;background:{dark}"></div>
+        <div style="width:6px;height:6px;border-radius:50%;background:{mid}"></div>
+        <div style="width:4px;height:4px;border-radius:50%;background:{mid};opacity:.5"></div>
+      </div>
+      <div style="font-size:36px;font-weight:900;color:{dark}">📊 &nbsp;Results</div>
     </div>
     {compare_block}
     {pills}
@@ -489,10 +503,10 @@ def s6_stats(d):
 
     card_colors = [
         (dark, light),
-        ("#B91C1C", "#FEE2E2"),
-        ("#065F46", "#D1FAE5"),
-        ("#B45309", "#FEF3C7"),
-        ("#0C4A6E", "#F0F9FF"),
+        (mid,  "#FFFFFF"),
+        (dark, light),
+        (mid,  "#FFFFFF"),
+        (dark, light),
     ]
     n = len(stats[:5])
     font = 64 if n <= 2 else (54 if n == 3 else (44 if n <= 4 else 36))
@@ -525,7 +539,7 @@ def s6_stats(d):
     body = f"""
 <div class="slide" style="background:#FFFFFF">
   {_hdr_light(6, dark, mid)}
-  <div style="flex:1;display:flex;flex-direction:column;padding:18px 52px 16px;
+  <div style="flex:1;display:flex;flex-direction:column;padding:18px 60px 16px;
               gap:12px;overflow:hidden;min-height:0">
     <div style="font-size:36px;font-weight:900;color:{dark};flex-shrink:0">
       📈 &nbsp;Statistics
@@ -571,17 +585,23 @@ def s7_takehome(d):
   {_hdr_light(7, dark, mid)}
 
   <!-- Character + heading -->
-  <div style="display:flex;align-items:center;gap:20px;padding:16px 52px 0;flex-shrink:0">
+  <div style="display:flex;align-items:center;gap:20px;padding:16px 60px 0;flex-shrink:0">
     <span style="font-size:80px;line-height:1">🩺</span>
     <div>
       <div style="font-size:36px;font-weight:900;color:{dark}">Take Home Message</div>
-      <div style="height:3px;background:{mid};border-radius:3px;margin-top:8px;width:200px"></div>
+      <!-- Dot-line decoration -->
+      <div style="display:flex;align-items:center;gap:6px;margin-top:10px">
+        <div style="width:8px;height:8px;border-radius:50%;background:{dark}"></div>
+        <div style="height:3px;width:80px;background:{mid};border-radius:3px"></div>
+        <div style="width:5px;height:5px;border-radius:50%;background:{mid}"></div>
+        <div style="height:3px;width:30px;background:{mid};opacity:.4;border-radius:3px"></div>
+      </div>
     </div>
   </div>
 
   <!-- Main message -->
   <div style="flex:1;min-height:0;display:flex;flex-direction:column;
-              padding:18px 52px 0;gap:14px;overflow:hidden">
+              padding:18px 60px 0;gap:14px;overflow:hidden">
     <div style="font-size:12px;font-weight:800;color:{mid};letter-spacing:.15em;flex-shrink:0">
       CLINICAL IMPLICATION
     </div>
@@ -590,7 +610,7 @@ def s7_takehome(d):
   </div>
 
   <!-- Limitations + citation -->
-  <div style="padding:12px 52px 12px;display:flex;flex-direction:column;gap:10px;flex-shrink:0">
+  <div style="padding:12px 60px 12px;display:flex;flex-direction:column;gap:10px;flex-shrink:0">
     {lim_block}
     {f'<div style="font-size:13px;color:#94A3B8;line-height:1.4">{cit}</div>' if cit else ''}
   </div>
