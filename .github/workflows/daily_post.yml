@@ -63,6 +63,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin main
           git add logs/posted_pmids.json
           git diff --staged --quiet || git commit -m "Update posted PMIDs [skip ci]"
           git push
