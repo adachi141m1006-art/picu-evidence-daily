@@ -151,24 +151,24 @@ def _screenshot(html_str: str, path: str):
 
 # ─── メインエントリ ──────────────────────────────────────────────────────
 
-DARK_SLIDES = {1, 2, 3, 5, 7}
+# Set to {1, 7} or similar to re-enable Gemini backgrounds for specific slides
+DARK_SLIDES = set()
 
 def generate_carousel(data, output_dir="output"):
     if not HAS_PLAYWRIGHT:
         raise RuntimeError("pip install playwright && playwright install chromium")
-    if not HAS_GENAI:
-        raise RuntimeError("pip install google-genai")
 
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        raise RuntimeError("GEMINI_API_KEY not set")
-
-    client = genai.Client(api_key=api_key)
     data = _norm(data)
-    out = Path(output_dir)
+    out  = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
     pmid = data.get("pmid", "unknown")
     st   = data.get("study_type", "RCT")
+
+    client = None
+    if DARK_SLIDES and HAS_GENAI:
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if api_key:
+            client = genai.Client(api_key=api_key)
 
     builders = [s1_hook, s2_keyfinding, s3_background, s4_pico,
                 s5_results, s6_stats, s7_takehome]
@@ -176,20 +176,22 @@ def generate_carousel(data, output_dir="output"):
 
     for i, fn in enumerate(builders, 1):
         path = out / f"pmid_{pmid}_slide{i}.png"
-        print(f"  [{i}/7] Gemini BG...", end=" ", flush=True)
 
-        bg_bytes = _gen_background(client, _bg(i, st))
-        bg_b64   = base64.b64encode(bg_bytes).decode()
-
-        print("HTML overlay...", end=" ", flush=True)
-        html_str     = fn(data)
-        html_with_bg = _inject_bg(html_str, bg_b64, dark=(i in DARK_SLIDES))
-        _screenshot(html_with_bg, str(path))
+        if i in DARK_SLIDES and client:
+            print(f"  [{i}/7] Gemini BG...", end=" ", flush=True)
+            bg_bytes     = _gen_background(client, _bg(i, st))
+            bg_b64       = base64.b64encode(bg_bytes).decode()
+            html_str     = fn(data)
+            html_with_bg = _inject_bg(html_str, bg_b64, dark=True)
+            _screenshot(html_with_bg, str(path))
+        else:
+            print(f"  [{i}/7] HTML...", end=" ", flush=True)
+            _screenshot(fn(data), str(path))
 
         print("done")
         paths.append(path)
 
-    print(f"Generated {len(paths)} hybrid slides -> {out}/")
+    print(f"Generated {len(paths)} slides -> {out}/")
     return paths
 
 
