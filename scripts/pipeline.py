@@ -48,22 +48,9 @@ sys.path.insert(0, str(Path(__file__).parent))
 from pubmed_fetcher import fetch_latest, efetch
 from summarizer import summarize_with_claude
 
-# 画像生成エンジン選択: Hybrid (Gemini BG + HTML text) > HTML/Playwright > PIL
-import os as _os
-if _os.environ.get("GEMINI_API_KEY"):
-    try:
-        from infographic_hybrid import generate_carousel
-        print("[Pipeline] Using Hybrid renderer (Gemini BG + HTML text)")
-    except Exception as _e:
-        print(f"[Pipeline] Hybrid fallback: {_e}")
-        from infographic_html import generate_carousel
-else:
-    try:
-        from infographic_html import generate_carousel
-        print("[Pipeline] Using HTML/Playwright renderer")
-    except Exception as _e:
-        print(f"[Pipeline] PIL fallback: {_e}")
-        from infographic import generate_carousel
+# 画像生成エンジン: 背景画像+Playwright
+from infographic_bg import generate_carousel
+print("[Pipeline] Using background-image renderer")
 
 from instagram_poster import generate_caption, post_carousel, upload_to_cloudinary
 
@@ -164,13 +151,9 @@ def run_pipeline(args):
     print("Step 3: インフォグラフィック生成")
     print("="*60)
 
-    slides = generate_carousel(summary, str(output_dir))
-    pmid = summary["pmid"]
-    slide_paths = [
-        output_dir / f"pmid_{pmid}_slide{i}.png" for i in range(1, len(slides) + 1)
-    ]
+    slide_paths = generate_carousel(summary, str(output_dir))
 
-    print(f"生成完了: {len(slides)} 枚")
+    print(f"生成完了: {len(slide_paths)} 枚")
     for p in slide_paths:
         print(f"  {p}")
 

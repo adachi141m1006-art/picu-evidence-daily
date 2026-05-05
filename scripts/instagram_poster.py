@@ -24,8 +24,7 @@ import certifi
 
 _SSL_CTX = ssl.create_default_context(cafile=certifi.where())
 
-# 新Instagram Login APIはgraph.instagram.comを使用
-GRAPH_API_BASE = "https://graph.instagram.com/v21.0"
+GRAPH_API_BASE = "https://graph.facebook.com/v21.0"
 
 
 def get_config():

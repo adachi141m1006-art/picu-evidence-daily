@@ -19,46 +19,88 @@ except ImportError:
 
 SYSTEM_PROMPT = """\
 あなたは小児集中治療の専門医です。
-PubMedから取得した論文情報を、Instagram投稿用のインフォグラフィックに使える構造化データに変換してください。
+PubMedから取得した論文情報を、Instagram投稿用インフォグラフィック（7スライドカルーセル）のデータに変換してください。
 
-対象読者: 医療者全般（医師、看護師、臨床工学技士など）
-言語: 日本語（専門用語は適宜英語を併記）
+対象読者: 医療者（医師・看護師・臨床工学技士）
+言語: 日本語（専門用語は適宜英語を含めてよい）
 
-【重要】各フィールドの文字数は厳守してください。インフォグラフィックの枠に収める必要があります。
+【マーカー記法】
+  **テキスト**   → 赤強調（太字・やや大きめ。重要な臨床語句・統計値・結論語句）
+  ***テキスト*** → 赤強調（さらに大きめ。主要アウトカム数値など最重要値）
+  *テキスト*     → 赤強調（やや小さめ。補足的強調）
+  ||テキスト||   → 黄色大数字表示（key_findingフィールド専用。HR/OR/NNT/死亡率など主要数値・群名）
+  \\n            → 行区切り（同段落内の改行）
+  \\n\\n         → 段落区切り（視覚的に行間が広くなる）
 
-以下のJSON形式で出力してください（説明テキストは不要、JSONのみ）:
+  注意: 赤強調（**・***・*）は各フィールドで最大3箇所。多すぎると視認性が落ちる。
+       改行位置は「意味の区切り」に入れる。助詞・接続詞が行末・行頭に残らないよう工夫する。
+
+以下のJSON形式で出力してください（説明文不要、JSONのみ）:
 {
-  "title_jp": "日本語タイトル（25文字以内、簡潔でインパクトがあるもの）",
-  "key_finding": "最重要な結果を1文で（60文字以内、数値を含めて具体的に）",
-  "impact_comment": "この結果の驚き・意義を口語で表現（50文字以内）。医師・看護師が思わず「えっ！」となる表現。例：「小児でもバソプレシンが効く！NNT=12の衝撃」「これまでの常識を覆す結果！」",
-  "background": "背景・臨床的疑問を2文以内（100文字以内）。重要なキーワードは**太字**で強調（最大3箇所）",
-  "population": "対象患者を改行区切りの箇条書きで出力（必ず各項目を改行で区切ること）。例：\n・生後1ヶ月-17歳\n・敗血症性ショック患児\n・n=1,200\n・28施設のICU",
-  "intervention": "介入内容（薬剤量・方法を含む、30文字以内）",
-  "comparison": "比較対照（20文字以内）",
-  "outcome": "主要アウトカムのみ（30文字以内）",
-  "design": "研究デザイン（英語で10語以内）",
-  "primary_result": "主要結果（統計値含む、80文字以内）",
-  "stats": ["統計値を3つ以内でリスト（HR/OR/NNT/p値、各15文字以内）"],
-  "secondary_results": "副次結果を1-2文（80文字以内）",
-  "take_home": "臨床へのメッセージを2文以内（100文字以内）。看護師・研修医にも伝わる平易な言葉で。「〜をすべき」「〜に注意」など具体的なアクションを含む",
-  "limitations": "主要Limitationsを2-3項目（- で開始、各項目30文字以内）",
-  "hashtags": ["関連ハッシュタグ5-7個（#不要、日本語英語混在可）"],
-  "stat_a": "介入群の主要アウトカム数値（例: 18.2%）。RCT以外や数値がない場合は空文字",
-  "stat_a_label": "介入群の短い説明（例: バソプレシン群、10文字以内）",
-  "stat_b": "対照群の主要アウトカム数値（例: 26.7%）。RCT以外や数値がない場合は空文字",
-  "stat_b_label": "対照群の短い説明（例: プラセボ群、10文字以内）",
-  "stat_context": "stat_a/bが何を表すか（例: 28日死亡率、15文字以内）"
+  "title_jp": "論文タイトルの日本語訳（25文字以内、簡潔でインパクトがあるもの）",
+
+  "hook": "スライド1の問いかけ文。「〜はどうなるか？」「〜は改善するか？」など疑問形。12〜18文字。マーカー不要",
+
+  "key_finding": "||...|| で主要数値・単位・群名・アウトカム名を強調。\\n で明示改行し4〜8行に分割。例（\\nは実際の改行として出力すること）:\\nICU入室後\\n||24時間以内||の\\n||経腸栄養開始||は\\n||60日死亡率||を\\n||有意に低下||させた\\n（||HR 0.71||）",
+
+  "impact_comment": "ネコキャラが語る結果のインパクト。**...** で重要語を赤強調（最大3箇所）。\\n\\n で2段落に分割。末尾は「〜にゃー。」で終わる。各行15文字以内。【重要】「にゃー」はこのフィールドと cat_comment にのみ使用すること",
+
+  "background": "研究背景を2段落（\\n\\n 区切り）。各段落2〜3行（\\n 区切り）。重要語に **...** を最大3箇所。合計5〜6行。【重要】「にゃー」は使わない",
+
+  "population": "対象患者を段落構成で出力。第1段落: 年齢・診断・例数など主要条件を \\n で区切り。第2段落: 「除外：\\n〜」形式で除外基準。**...**・***n例*** で重要部分を強調",
+
+  "pico_p": "P（患者）を1〜2行に凝縮。**...**・***n例*** で強調。例: **18歳未満**のICU入室患者（n=***1,247例***）",
+
+  "intervention": "I（介入）を1行（30文字以内厳守。超える場合は省略・言い換え）。**...** で介入の核心を強調",
+
+  "comparison": "C（比較）を1行（20文字以内）",
+
+  "outcome": "O（主要アウトカム）を1行（30文字以内）。**...** で強調",
+
+  "design": "研究デザイン・期間・施設数を2行以内。例: 多施設前向きコホート研究\\n2020〜2023年、15施設参加",
+
+  "primary_result": "主要結果を3〜5行（\\n 区切り）。統計値（HR/OR/p値/CI）を **...** で強調",
+
+  "secondary_results": "副次結果を1〜2段落（\\n\\n 区切り）。各段落2〜3行（\\n 区切り）。統計値を **...** で強調",
+
+  "limitations": "Limitationsを3項目。各項目は【必ず】「主見出し行\\n補足1行」の計2行のみ。3行以上にしない（3行目以降は表示されない）。項目間は \\n\\n で区切る。主見出しの核心語（1〜2語）のみを **...** で強調。例:\\n観察研究のため**交絡因子**が残る\\n因果関係の断定は慎重に\\n\\n施設間で**プロトコール差**あり\\n開始基準・実施方法にばらつき\\n\\n**栄養・カロリー達成率**は不明\\n「開始した」以外の質は読み取りにくい",
+
+  "cat_comment": "批判的吟味のネコ吹き出し。\\n で区切った行を【5行以内厳守】（6行以上にすると表示が崩れる）。主要結果の注意点・読み方に絞る。**...** で重要語を強調（最大3箇所）。末尾は「〜にゃー。」で終わる。1段落（\\n\\n 不使用）。1行15文字以内",
+
+  "take_home": "臨床メッセージを2段落（\\n\\n 区切り）。第1段落: この研究が示した臨床的事実（2〜3行）。第2段落: 実際のアクション推奨（禁忌・条件付き）（1〜2行）。重要語を **...** で強調（最大3箇所）",
+
+  "take_home_note": "take_homeに続く短い補足注意事項（任意）。1行・30文字以内。不要なら空文字",
+
+  "hashtags": ["関連ハッシュタグ5〜7個（#不要、日本語英語混在可）"]
 }
 
-注意:
-- 数値・統計値は原文から正確に引用すること
-- backgroundの**太字**は重要なキーワードのみ（専門用語・数値・疾患名など）
-- populationは必ず改行区切り箇条書き形式で出力すること（カンマや句読点で区切らない）
-- 観察研究やレビューなど、PICOに当てはまらない場合は該当フィールドを空文字にする
-- Limitationsは著者が述べているものを優先
-- take_homeは「この患者が来たらどうするか」を看護師にも伝わる言葉で
-- 文字数超過は厳禁。超えそうな場合は省略・言い換えること
+共通ルール:
+- 数値・統計値は原文から正確に引用する
+- 観察研究・レビューなどPICOに当てはまらない場合は intervention/comparison を空文字にする
+- Limitationsは著者が明示しているものを優先（3項目必須）
+- take_home の第2段落は「禁忌や〜がなければ」「〜が安定していれば」など条件付き推奨を心がける
+- cat_comment は limitations と重複しすぎないよう、「読み方・解釈の注意」に絞る
 """
+
+
+def _sanitize_summary(s: dict) -> dict:
+    """Claude出力のレイアウト制約違反をコード側で保証する。"""
+    # cat_comment: 5行以内（6行目以降はバブルからはみ出す）
+    if s.get("cat_comment"):
+        lines = [l for l in s["cat_comment"].split("\n") if l.strip()]
+        if len(lines) > 5:
+            s["cat_comment"] = "\n".join(lines[:5])
+
+    # limitations: 各項目2行のみ（3行目以降は _lim_item で無音ドロップされるため先に切る）
+    if s.get("limitations"):
+        items = [item.strip() for item in s["limitations"].split("\n\n") if item.strip()]
+        sanitized = []
+        for item in items[:3]:
+            item_lines = [l for l in item.split("\n") if l.strip()]
+            sanitized.append("\n".join(item_lines[:2]))
+        s["limitations"] = "\n\n".join(sanitized)
+
+    return s
 
 
 def summarize_with_claude(article, api_key=None):
@@ -109,6 +151,7 @@ Abstract:
             json_text = m.group(0)
 
     summary = json.loads(json_text.strip())
+    summary = _sanitize_summary(summary)
 
     # 元データからのフィールドを追加
     summary["pmid"] = article["pmid"]
@@ -119,12 +162,15 @@ Abstract:
     summary["doi"] = article.get("doi", "")
     summary["authors"] = article["authors"]
 
-    # citation生成
+    # citation生成: タイトルは60文字に切り詰め（Slide 7 下部がフッターに被るのを防ぐ）
     authors_str = article["authors"][0] if article["authors"] else "Unknown"
     if len(article["authors"]) > 1:
         authors_str += ", et al"
+    title_abbr = article["title_en"]
+    if len(title_abbr) > 60:
+        title_abbr = title_abbr[:57] + "..."
     summary["citation"] = (
-        f"{authors_str}. {article['title_en']} "
+        f"{authors_str}. {title_abbr} "
         f"{article['journal']}. {article['year']}. "
         f"doi:{article.get('doi', 'N/A')}"
     )
@@ -139,20 +185,24 @@ def mock_summarize(article):
         "study_type": article["study_type"],
         "journal": article["journal"],
         "year": article["year"],
-        "title_jp": f"[要約未生成] {article['title_en'][:50]}...",
+        "title_jp": f"[要約未生成] {article['title_en'][:25]}",
         "title_en": article["title_en"],
-        "key_finding": "Claude APIキーを設定すると自動要約が生成されます",
+        "hook": "APIキーを設定すると自動生成されます",
+        "key_finding": "||Claude APIキー||を\n||設定||すると\n||自動要約||が生成されます",
+        "impact_comment": "**APIキー**を設定して\n再実行してください\nにゃー。",
         "background": article["abstract"][:200] if article.get("abstract") else "Abstract not available",
         "population": "",
+        "pico_p": "",
         "intervention": "",
         "comparison": "",
         "outcome": "",
         "design": article["study_type"],
         "primary_result": "Claude APIキーを設定してください",
-        "stats": [],
         "secondary_results": "",
-        "take_home": "ANTHROPIC_API_KEY 環境変数を設定して再実行してください",
-        "limitations": "",
+        "take_home": "ANTHROPIC_API_KEY 環境変数を設定して\n再実行してください。\n\n詳細は README を参照してください。",
+        "take_home_note": "",
+        "limitations": "APIキーが未設定\n要約は生成されていません\n\nANTHROPIC_API_KEY を設定\n再実行してください\n\n詳細は README を参照\n設定方法を確認してください",
+        "cat_comment": "**APIキー**が未設定なので\n**要約**が生成されていないにゃー。\n設定して再実行にゃー。",
         "citation": f"{article['authors'][0] if article['authors'] else 'Unknown'}, et al. {article['journal']}. {article['year']}.",
         "hashtags": ["PICU", "小児集中治療", "エビデンス"],
         "doi": article.get("doi", ""),
