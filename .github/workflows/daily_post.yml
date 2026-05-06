@@ -1,12 +1,12 @@
 # PICU Evidence Daily — GitHub Actions 自動投稿ワークフロー
-# 毎朝9:00 JST (00:00 UTC) に自動実行
+# 毎朝4:00 JST (19:00 UTC 前日) に自動実行
 
 name: Daily Evidence Post
 
 on:
   schedule:
-    # 毎日 00:00 UTC = 09:00 JST
-    - cron: '0 0 * * *'
+    # 毎日 19:00 UTC = 翌04:00 JST
+    - cron: '0 19 * * *'
   workflow_dispatch:  # 手動実行も可能
 
 jobs:
