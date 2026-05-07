@@ -34,6 +34,7 @@ Usage:
 import argparse
 import json
 import os
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -45,7 +46,7 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 # 同ディレクトリのモジュールをインポート
 sys.path.insert(0, str(Path(__file__).parent))
 
-from pubmed_fetcher import fetch_latest, efetch
+from pubmed_fetcher import fetch_latest, efetch, normalize_title
 from summarizer import summarize_with_claude
 
 # 画像生成エンジン: 背景画像+Playwright
@@ -75,6 +76,86 @@ def notify_line(message, token=None):
         print(f"[LINE] Notification failed: {e}")
 
 
+HISTORY_FILE = "posted_articles.json"   # logs/ 以下に置く
+OLD_PMID_FILE = "posted_pmids.json"
+
+
+def _load_history(log_dir: Path) -> tuple:
+    """投稿履歴を読み込む。破損時はsys.exitで停止（重複投稿防止）。
+    returns: (records, pmid_set, doi_set, title_norm_set)
+    """
+    new_file = log_dir / HISTORY_FILE
+    old_file = log_dir / OLD_PMID_FILE
+    records  = []
+
+    if new_file.exists():
+        try:
+            with open(new_file, encoding="utf-8") as f:
+                records = json.load(f)
+            if not isinstance(records, list):
+                raise ValueError("posted_articles.json is not a list")
+        except Exception as e:
+            print(f"[CRITICAL] 投稿履歴ファイルが壊れています: {e}")
+            print("[CRITICAL] 重複投稿を防ぐためパイプラインを停止します。")
+            sys.exit(1)
+    elif old_file.exists():
+        print("[History] posted_pmids.json → posted_articles.json へ移行します")
+        with open(old_file, encoding="utf-8") as f:
+            old_pmids = json.load(f)
+        records = [
+            {"pmid": p, "doi": "", "title": "", "title_normalized": "",
+             "journal": "", "year": "", "first_author": "",
+             "posted_at": "", "instagram_media_id": ""}
+            for p in old_pmids
+        ]
+        with open(new_file, "w", encoding="utf-8") as f:
+            json.dump(records, f, ensure_ascii=False, indent=2)
+        print(f"[History] {len(records)} 件を移行しました")
+
+    pmid_set  = {r["pmid"]             for r in records if r.get("pmid")}
+    doi_set   = {r["doi"]              for r in records if r.get("doi")}
+    norm_set  = {r["title_normalized"] for r in records if r.get("title_normalized")}
+    return records, pmid_set, doi_set, norm_set
+
+
+def _is_posted(article: dict, pmid_set: set, doi_set: set, norm_set: set) -> bool:
+    """PMID / DOI / タイトル正規化 のいずれかが一致したら投稿済み"""
+    if article.get("pmid") and article["pmid"] in pmid_set:
+        return True
+    doi = article.get("doi", "")
+    if doi and doi in doi_set:
+        return True
+    tn = normalize_title(article.get("title_en", ""))
+    if tn and tn in norm_set:
+        return True
+    return False
+
+
+def _save_history(article: dict, media_id: str, log_dir: Path) -> None:
+    """投稿成功後にのみ呼ぶ。失敗時は呼ばない。"""
+    new_file = log_dir / HISTORY_FILE
+    records  = []
+    if new_file.exists():
+        with open(new_file, encoding="utf-8") as f:
+            records = json.load(f)
+
+    records.append({
+        "posted_at":          datetime.now().isoformat(),
+        "pmid":               article.get("pmid", ""),
+        "doi":                article.get("doi", ""),
+        "title":              article.get("title_en", ""),
+        "title_normalized":   normalize_title(article.get("title_en", "")),
+        "journal":            article.get("journal", ""),
+        "year":               article.get("year", ""),
+        "first_author":       article["authors"][0] if article.get("authors") else "",
+        "instagram_media_id": media_id,
+    })
+
+    with open(new_file, "w", encoding="utf-8") as f:
+        json.dump(records, f, ensure_ascii=False, indent=2)
+    print(f"[History] 投稿履歴を保存 (PMID: {article.get('pmid')})")
+
+
 def run_pipeline(args):
     """メインパイプライン"""
     base_dir = Path(args.output_dir)
@@ -86,13 +167,9 @@ def run_pipeline(args):
         d.mkdir(parents=True, exist_ok=True)
 
     date_str = datetime.now().strftime("%Y%m%d")
-    posted_log = log_dir / "posted_pmids.json"
 
-    # 投稿済みPMIDを読み込み
-    posted_pmids = set()
-    if posted_log.exists():
-        with open(posted_log) as f:
-            posted_pmids = set(json.load(f))
+    # 投稿履歴を読み込み（破損時はsys.exitで停止）
+    _, pmid_set, doi_set, norm_set = _load_history(log_dir)
 
     # ===== Step 1: 論文取得 =====
     print("\n" + "="*60)
@@ -119,8 +196,8 @@ def run_pipeline(args):
         notify_line(f"[PICU Evidence Daily] {date_str}: 新しい論文なし")
         return
 
-    # 投稿済みを除外
-    new_articles = [a for a in articles if a["pmid"] not in posted_pmids]
+    # 投稿済みを除外（PMID / DOI / タイトル正規化で判定）
+    new_articles = [a for a in articles if not _is_posted(a, pmid_set, doi_set, norm_set)]
     if not new_articles:
         print("すべて投稿済みです。")
         return
@@ -196,10 +273,8 @@ def run_pipeline(args):
         media_id = post_carousel(image_urls, caption)
         print(f"\n投稿完了! Media ID: {media_id}")
 
-        # 投稿済みPMIDを記録
-        posted_pmids.add(article["pmid"])
-        with open(posted_log, "w") as f:
-            json.dump(list(posted_pmids), f)
+        # 投稿成功後にのみ履歴保存（失敗時は保存しない）
+        _save_history(article, media_id, log_dir)
 
         notify_line(f"[PICU Evidence Daily] 投稿完了!\n{summary['title_jp']}")
     except Exception as e:
