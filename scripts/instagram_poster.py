@@ -15,6 +15,7 @@ Instagram Graph API を使ってカルーセル投稿を行う。
 
 import json
 import os
+import re
 import ssl
 import time
 from urllib.parse import urlencode
@@ -168,50 +169,106 @@ def post_carousel(image_urls, caption, token=None, account_id=None):
     return media_id
 
 
-def generate_caption(summary):
+def _strip_markup(text: str) -> str:
+    """インフォグラフィック用マーカー（** / * / ||...||）を除去"""
+    text = re.sub(r'\*{3}(.+?)\*{3}', r'\1', text)
+    text = re.sub(r'\*{2}(.+?)\*{2}', r'\1', text)
+    text = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'\1', text)
+    text = re.sub(r'\|\|(.+?)\|\|', r'\1', text)
+    return text
+
+
+def generate_caption(summary: dict) -> str:
     """要約データからInstagramキャプションを生成"""
-    hashtags = summary.get("hashtags", ["PICU", "小児集中治療", "エビデンス"])
-    hashtag_str = " ".join(f"#{tag}" for tag in hashtags)
+    def clean(field):
+        return _strip_markup(summary.get(field, "") or "").strip()
 
-    journal    = summary.get('journal', '')
-    year       = summary.get('year', '')
-    study_type = summary.get('study_type', '')
-    title_jp   = summary.get('title_jp', '')
-    background = summary.get('background', '')
-    key_finding = summary.get('key_finding', '')
-    primary_result = summary.get('primary_result', '')
-    take_home  = summary.get('take_home', '')
-    citation   = summary.get('citation', '')
+    def fmt(text):
+        """段落区切り（\n\n）を保持しつつ各行を整形"""
+        paras = [p.strip() for p in text.split("\n\n") if p.strip()]
+        return "\n\n".join(
+            "\n".join(ln.strip() for ln in p.split("\n") if ln.strip())
+            for p in paras
+        )
 
-    # stats の上位3つ
-    stats = summary.get('stats', [])[:3]
-    stats_lines = '\n'.join(f"  ▸ {s}" for s in stats) if stats else ''
+    hook        = clean("hook")
+    background  = clean("background")
+    primary     = clean("primary_result")
+    secondary   = clean("secondary_results")
+    take_home   = clean("take_home")
+    limitations = clean("limitations")
+    citation    = summary.get("citation", "")
+    journal     = summary.get("journal", "")
+    year        = summary.get("year", "")
+    study_type  = summary.get("study_type", "")
+    hashtags    = summary.get("hashtags", [])
 
-    caption = f"""🔬 {title_jp}
-━━━━━━━━━━━━━━━━━━
-📰 {journal} {year}  |  {study_type}
+    # --- 冒頭フック (hook疑問文 + 論文情報) ---
+    hook_block = f"{hook}🤔\n\n今回は{journal} {year}の{study_type}を紹介します📄"
 
-【なぜ重要？】
-{background}
+    # --- なぜ重要？ ---
+    bg_block = f"📌 なぜ重要？\n{fmt(background)}" if background else ""
 
-【Key Finding】
-{key_finding}
+    # --- 結果 (primary_result + secondary_results) ---
+    pri_text = fmt(primary)
+    sec_lines = [ln.strip() for ln in secondary.split("\n") if ln.strip()]
+    sec_text  = "\n".join(sec_lines[:6])
 
-【主要結果】
-{primary_result}
-{stats_lines}
+    result_parts = [pri_text] if pri_text else []
+    if sec_text:
+        result_parts.append(f"\n副次的に：\n{sec_text}")
+    result_block = "📉 結果\n" + "\n".join(result_parts) if result_parts else ""
 
-【Take Home Message】
-{take_home}
+    # --- 臨床での見方 ---
+    th_block = f"💡 臨床での見方\n{fmt(take_home)}" if take_home else ""
 
-スライドを全部見ると理解が深まります📊
-気に入ったら保存 & シェアしてください💾
+    # --- この研究の限界 ---
+    lim_items = [item.strip() for item in limitations.split("\n\n") if item.strip()]
+    lim_bullets = []
+    for item in lim_items[:3]:
+        lines = [ln.strip() for ln in item.split("\n") if ln.strip()]
+        if lines:
+            lim_bullets.append(f"・{lines[0]}")
+    lim_block = ""
+    if lim_bullets:
+        lim_block = (
+            "⚠️ この研究の限界\n"
+            + "\n".join(lim_bullets)
+            + "\n\nこの研究だけで全例に適用できるわけではありません。"
+        )
 
-📎 {citation}
-━━━━━━━━━━━━━━━━━━
-{hashtag_str}
-#PICUEvidenceDaily #小児科 #集中治療室 #医学論文 #エビデンスベース医療 #研修医 #看護師 #小児集中治療"""
-    return caption.strip()
+    # --- CTA ---
+    cta_block = (
+        "─────────────────\n"
+        "小児・集中治療の最新論文を、明日の臨床で使える形でまとめています🩺\n"
+        "見逃したくない方はフォローしておいてください📚\n"
+        "あとで読み返すなら保存がおすすめです🔖\n"
+        "気になる点や現場の経験があればコメントで教えてください👇\n"
+        "─────────────────"
+    )
+
+    # --- ハッシュタグ（論文テーマ優先 + 固定タグ） ---
+    fixed_tags = [
+        "PICUEvidenceDaily", "小児科", "集中治療", "医学論文",
+        "エビデンス", "研修医", "看護師", "小児集中治療", "PICU",
+    ]
+    all_tags = list(dict.fromkeys(hashtags + fixed_tags))[:18]
+    hashtag_str = " ".join(f"#{t}" for t in all_tags)
+
+    # --- 組み立て ---
+    blocks = [b for b in [
+        hook_block,
+        f"📰 {journal} {year}  |  {study_type}",
+        bg_block,
+        result_block,
+        th_block,
+        lim_block,
+        cta_block,
+        f"📎 {citation}",
+        hashtag_str,
+    ] if b]
+
+    return "\n\n".join(blocks).strip()
 
 
 # === 画像ホスティングのヘルパー ===
