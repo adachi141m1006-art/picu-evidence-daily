@@ -35,13 +35,13 @@ def _b64_bg(slide_num: int) -> str:
 _NOWRAP_TERMS = sorted([
     # 文末語尾
     "にゃー",
-    # 研究デザイン（長い語を先に）
+    # 研究デザイン
     "多施設共同前向きコホート研究", "多施設前向きコホート研究", "多施設後ろ向きコホート研究",
     "単施設前向きコホート研究", "多施設前向きコホート", "前向きコホート研究",
     "後ろ向きコホート研究", "ランダム化比較試験", "無作為化比較試験",
     "システマティックレビュー", "システマティック・レビュー", "メタアナリシス", "メタ解析",
     "コホート研究", "観察研究", "横断研究", "症例対照研究",
-    # ICU/PICU（患者・対象語句）
+    # ICU/PICU
     "ICU入室患者", "PICU入室患者",
     "ICU入室後", "PICU入室後", "PICU死亡率", "ICU死亡率",
     "PICU死亡", "ICU死亡", "ICU入室", "PICU入室",
@@ -53,6 +53,26 @@ _NOWRAP_TERMS = sorted([
     # 栄養
     "早期経腸栄養", "経腸栄養開始", "経腸栄養中止", "経腸栄養継続",
     "経腸栄養禁忌", "経腸栄養量", "経腸栄養", "早期静脈栄養", "静脈栄養",
+    # 抗菌薬・抗真菌薬・抗ウイルス薬（長い語を先に）
+    "ピペラシリン/タゾバクタム", "ピペラシリン・タゾバクタム",
+    "アンピシリン/スルバクタム", "アンピシリン・スルバクタム",
+    "ピペラシリン", "タゾバクタム", "スルバクタム", "アンピシリン",
+    "セフェピム", "セフォタキシム", "セフトリアキソン", "セフタジジム",
+    "セファゾリン", "セファレキシン", "セフォキシチン",
+    "メロペネム", "イミペネム", "ドリペネム", "エルタペネム",
+    "バンコマイシン", "テイコプラニン", "リネゾリド", "ダプトマイシン",
+    "クリンダマイシン", "アジスロマイシン", "クラリスロマイシン",
+    "ゲンタマイシン", "アミカシン", "トブラマイシン",
+    "シプロフロキサシン", "レボフロキサシン", "モキシフロキサシン",
+    "フルコナゾール", "ミカファンギン", "アムホテリシン",
+    "アシクロビル", "ガンシクロビル", "バラシクロビル",
+    "リバビリン", "オセルタミビル", "パリビズマブ",
+    # 医学用語・略語
+    "施設プロトコール", "プロトコール", "ガイドライン", "エビデンス",
+    "発熱性好中球減少症", "発熱性好中球減少", "好中球減少症", "好中球減少",
+    "フェブリルニュートロペニア", "ニュートロペニア",
+    "造血幹細胞移植", "同種移植", "自家移植", "免疫不全",
+    "インフォームドコンセント",
 ], key=len, reverse=True)
 
 _NOWRAP_PATTERNS = [
@@ -72,6 +92,12 @@ _NOWRAP_PATTERNS = [
     r'\d+(?:[,，]\d+)*例',
     # パーセント
     r'\d+(?:\.\d+)?%',
+    # 医薬品・医学英字略語（2〜6文字の大文字）
+    r'\b(?:PTAZ|PIPC|CFPM|VCM|MEPM|DRPM|IPM|MDRP|MRSA|ESBL|PRSP|CRKP|CRAB'
+    r'|FN|TDM|PK|PD|CRP|PCT|WBC|ANC|ALC|Hb|Plt|Cr|BUN|ALT|AST|LDH'
+    r'|ECMO|CRRT|CHDF|ARDS|DIC|SIRS|MAP|CVP|PCWP'
+    r'|RCT|SR|MA|CI|OR|HR|RR|NNT|NNH|ARR|RRR'
+    r'|PICU|NICU|ICU|ER|DNAR|DNR)\b',
 ]
 
 _NOWRAP_RE = re.compile(
@@ -237,7 +263,9 @@ body {{ width:1080px; height:1350px; overflow:hidden; background:#000; }}
 </html>"""
 
 
-def s1_hook(summary: dict) -> str:
+def s1_hook(summary: dict, font_scale: float = 1.0) -> str:
+    sz = lambda n, mn=14: max(mn, round(n * font_scale))
+
     hook        = summary.get("hook", "")
     title_raw   = summary.get("title_jp", "")
     kf_raw      = summary.get("key_finding", "")
@@ -246,35 +274,32 @@ def s1_hook(summary: dict) -> str:
     year        = summary.get("year", "")
     journal     = summary.get("journal", "")
 
-    # Slide 1 はプレーンテキスト表示。||...|| / **...** マーカーを除去してから処理する
     kf_plain    = _strip_markup(kf_raw)
     title_plain = _strip_markup(title_raw)
 
-    hook        = _fmt(hook, 16)
+    hook_fmt    = _fmt(hook, 16)
     title       = _fmt(title_plain, 22)
     key_finding = _fmt(kf_plain, 26)
     citation    = _nowrap_jp(citation)
 
-    hook_size    = _fit(hook,        base=66, min_size=60, chars_per_line=12) if hook else 0
-    title_size   = _fit(title_plain, base=46, min_size=40, chars_per_line=18)
-    finding_size = _fit(kf_plain,    base=40, min_size=35, chars_per_line=20)
+    hook_size    = _fit(hook,        base=sz(66), min_size=sz(58), chars_per_line=12) if hook else 0
+    title_size   = _fit(title_plain, base=sz(46), min_size=sz(38), chars_per_line=18)
+    finding_size = _fit(kf_plain,    base=sz(40), min_size=sz(33), chars_per_line=20)
 
     bg = _b64_bg(1)
     bg_style = f"background-image:url('{bg}');background-size:cover;background-position:center top;" if bg else "background:#0a1a5c;"
 
-    # study タグ（白テキスト・薄い白枠・同系ゴシック）
     tag_items = [t for t in [study_type, f"{journal} {year}".strip()] if t]
     tag_html = ""
     if tag_items:
         spans = "".join(
             f'<span style="border:1px solid rgba(255,255,255,0.40);border-radius:20px;'
-            f'padding:3px 14px;font-size:21px;font-weight:700;color:#ffffff;'
+            f'padding:3px 14px;font-size:{sz(21)}px;font-weight:700;color:#ffffff;'
             f'font-family:{F_HEAD};white-space:nowrap;">{t}</span>'
             for t in tag_items
         )
         tag_html = f'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">{spans}</div>'
 
-    # key finding: 赤縦バー＋文章そのまま
     finding_block = f"""
     <div style="display:flex;align-items:stretch;gap:18px;padding-right:148px;">
       <div style="width:5px;background:#e53935;border-radius:3px;flex-shrink:0;"></div>
@@ -282,25 +307,27 @@ def s1_hook(summary: dict) -> str:
                   color:#ffffff;line-height:1.4;">{key_finding}</div>
     </div>"""
 
+    # hook: max-height を 290px（タイトルブロック top=595 まで余裕を持たせる）
+    # overflow:hidden で QA の container_clipping 検出が機能する
     hook_html = f"""
   <div style="position:absolute;top:248px;left:64px;">
-    <span style="background:#e53935;color:#ffffff;font-family:{F_BODY};font-size:22px;
+    <span style="background:#e53935;color:#ffffff;font-family:{F_BODY};font-size:{sz(22)}px;
                  font-weight:{W_BLACK};padding:4px 16px;border-radius:4px;
                  letter-spacing:0.08em;">注目論文</span>
   </div>
   <div class="text-block" style="position:absolute;top:292px;left:64px;right:240px;
               font-family:{F_HOOK};font-size:{hook_size}px;font-weight:800;
-              color:#ffffff;line-height:1.18;overflow:hidden;max-height:172px;">
-    {hook}
+              color:#ffffff;line-height:1.18;max-height:290px;overflow:hidden;">
+    {hook_fmt}
   </div>""" if hook else ""
 
     div = f"""<div style="width:1080px;height:1350px;position:relative;overflow:hidden;{bg_style}">
 {hook_html}
 
-  <!-- Title + Tag + Key Finding: 一続きblock -->
+  <!-- Title + Tag + Key Finding -->
   <div style="position:absolute;top:595px;left:64px;right:72px;
-              display:flex;flex-direction:column;gap:40px;
-              max-height:565px;overflow:hidden;">
+              display:flex;flex-direction:column;gap:36px;
+              max-height:570px;overflow:hidden;">
 
     <div>
       <div class="text-block" style="font-family:{F_HEAD};font-size:{title_size}px;font-weight:800;
@@ -314,22 +341,23 @@ def s1_hook(summary: dict) -> str:
 
   <!-- Citation -->
   <div style="position:absolute;top:1178px;left:64px;right:230px;
-              font-family:{F_BODY};font-size:21px;font-weight:{W_MED};
+              font-family:{F_BODY};font-size:{sz(21)}px;font-weight:{W_MED};
               color:rgba(255,255,255,0.58);line-height:1.5;">{citation}</div>
 
 </div>"""
-    return _html_page(div)
+    return _html_page(div, emph_red_px=sz(58))
 
 
-def s2_keyfinding(summary: dict) -> str:
+def s2_keyfinding(summary: dict, font_scale: float = 1.0) -> str:
     """Slide 2: 上半分にKey Finding大表示 + 吹き出し内にネココメント"""
+    sz = lambda n, mn=14: max(mn, round(n * font_scale))
     key_finding_raw = summary.get("key_finding", "")
     impact_raw      = summary.get("impact_comment", "")
 
-    kf_base = 44
-    kf_emph = 62
-    ic_base = 38
-    ic_emph = 46
+    kf_base = sz(44)
+    kf_emph = sz(62)
+    ic_base = sz(38)
+    ic_emph = sz(46)
 
     # key_finding: \n で明示改行、||...|| で強調
     kf_lines = [ln.strip() for ln in key_finding_raw.split('\n') if ln.strip()]
@@ -375,7 +403,7 @@ def s2_keyfinding(summary: dict) -> str:
   </div>
 
 </div>"""
-    return _html_page(div, emph_red_px=50)
+    return _html_page(div, emph_red_px=sz(50))
 
 
 def _build_section(text: str, emph_px: int, para_gap: int = 20,
@@ -412,15 +440,16 @@ def _yellow_emph(text: str, emph_px: int = 0) -> str:
     return text
 
 
-def s3_background(summary: dict) -> str:
+def s3_background(summary: dict, font_scale: float = 1.0) -> str:
     """Slide 3: 背景・対象（見出しは背景画像に既出、本文テキストをオーバーレイ）"""
+    sz = lambda n, mn=14: max(mn, round(n * font_scale))
     bg_raw  = summary.get("background", "")
     pop_raw = summary.get("population", "")
 
-    bg_base  = 38   # line-height 1.5 → 57px > emph_red_px=50 ✓
-    bg_emph  = 48
-    pop_base = 38   # line-height 1.52 → 57.8px > emph_red_px=50 ✓
-    pop_emph = 48
+    bg_base  = sz(38)
+    bg_emph  = sz(48)
+    pop_base = sz(38)
+    pop_emph = sz(48)
 
     bg_html  = _build_section(bg_raw,  bg_emph,  para_gap=24)
     pop_html = _build_section(pop_raw, pop_emph, para_gap=16)
@@ -445,26 +474,22 @@ def s3_background(summary: dict) -> str:
   </div>
 
 </div>"""
-    return _html_page(div, emph_red_px=50)
+    return _html_page(div, emph_red_px=sz(50))
 
 
-def s4_pico(summary: dict) -> str:
-    """Slide 4: PICO + 方法（見出しは背景画像に既出）
-    背景レイアウト:
-      PICO見出し y≈65px, 方法見出し y≈730px
-      左下波デザイン x=0〜170px / y=870px〜
-      スワイプ文 y≈1295px
-    """
+def s4_pico(summary: dict, font_scale: float = 1.0) -> str:
+    """Slide 4: PICO + 方法（見出しは背景画像に既出）"""
+    sz = lambda n, mn=14: max(mn, round(n * font_scale))
     pico_p = summary.get("pico_p", "")
     pico_i = summary.get("intervention", "")
     pico_c = summary.get("comparison", "")
     pico_o = summary.get("outcome", "")
     design = summary.get("design", "")
 
-    body_base = 40   # PICO本文
-    body_emph = 54   # PICO赤強調
-    des_base  = 42   # 方法本文
-    des_emph  = 52   # 方法赤強調
+    body_base = sz(40)
+    body_emph = sz(54)
+    des_base  = sz(42)
+    des_emph  = sz(52)
 
     # PICO各行: 絶対配置（見出し下135px〜、120px間隔）
     # overflow:hidden 禁止。2行以内に収まる文字量はsummarizerで制御
@@ -518,24 +543,19 @@ def s4_pico(summary: dict) -> str:
   </div>
 
 </div>"""
-    return _html_page(div, emph_red_px=52)
+    return _html_page(div, emph_red_px=sz(52))
 
 
-def s5_results(summary: dict) -> str:
-    """Slide 5: 結果 + 二次結果
-    背景レイアウト:
-      「結果」見出し y≈40-90px
-      「二次結果」見出し y≈645-710px
-      右下波デザイン x≈850px〜 / y≈1145px〜
-      スワイプ文 y≈1295px
-    """
+def s5_results(summary: dict, font_scale: float = 1.0) -> str:
+    """Slide 5: 結果 + 二次結果"""
+    sz = lambda n, mn=14: max(mn, round(n * font_scale))
     primary   = summary.get("primary_result", "")
     secondary = summary.get("secondary_results", "")
 
-    pri_base = 44   # 主要結果 通常文字
-    pri_emph = 60   # 主要結果 赤強調 (***=68px **=60px *=52px)
-    sec_base = 40   # 二次結果 通常文字
-    sec_emph = 52   # 二次結果 赤強調 (***=60px **=52px *=44px)
+    pri_base = sz(44)
+    pri_emph = sz(60)
+    sec_base = sz(40)
+    sec_emph = sz(52)
 
     pri_html = _build_section(primary,   pri_emph, para_gap=22)
     sec_html = _build_section(secondary, sec_emph, para_gap=16)
@@ -561,38 +581,31 @@ def s5_results(summary: dict) -> str:
   </div>
 
 </div>"""
-    return _html_page(div, emph_red_px=58)
+    return _html_page(div, emph_red_px=sz(58))
 
 
-def s6_critical(summary: dict) -> str:
-    """Slide 6: 批判的吟味（上部3項目）+ ネコ吹き出し（下部）
-    背景レイアウト（全て背景画像）:
-      「批判的吟味」見出し y≈40-100px
-      右上線形装飾 x≈700px〜 / y≈150-480px → テキスト右端 x=700px（right=380px）
-      吹き出し安全域 x=90〜650px / y=700〜1040px → 内側40px余白
-      ネコ x≈830px〜 / y≈940px〜
-    禁止事項:
-      overflow:hidden / text-overflow:ellipsis / x>700pxへのテキスト配置
-    サイズ設計:
-      lim_base=36px（main line-height 1.42 → 51.1px > emph_red_px 42px ✓）
-      lim_sub =30px（sub  line-height 1.60 → 48.0px > emph_red_px 42px ✓）
-      cat_base=34px（cat  line-height 1.60 → 54.4px > emph_red_px 42px ✓）
-    幅設計:
-      left=55px, badge≈44px, gap=16px → text left≈115px, text right=700px → 幅≈585px
-      36px本文×14char + 42px赤強調×7char以内 → 単行に収まる（要約側で制御）
-    """
+def s6_critical(summary: dict, font_scale: float = 1.0) -> str:
+    """Slide 6: 批判的吟味（上部3項目）+ ネコ吹き出し（下部）"""
+    sz = lambda n, mn=14: max(mn, round(n * font_scale))
     limitations = summary.get("limitations", "")
     cat_comment  = summary.get("cat_comment", "")
 
-    lim_base = 33   # limitation main行（33×1.40=46.2 > emph_red_px=42 ✓）
-    lim_sub  = 28   # limitation sub行（28×1.60=44.8 > emph_red_px=42 ✓）
-    cat_base = 36   # 吹き出し内本文（line-height 1.55 → 55.8px > emph_red_px=42 ✓）
+    lim_base = sz(33)
+    lim_sub  = sz(28)
+
+    # 吹き出し内テキスト量に応じて動的にフォントサイズを設定
+    # 吹き出し有効高さ: 340px - 20px padding - 35px header = 285px
+    # cat_base × 1.55 × 行数 ≤ 285px
+    cat_text_len = len(_strip_markup(cat_comment))
+    if cat_text_len <= 35:
+        cat_base = sz(36)
+    elif cat_text_len <= 55:
+        cat_base = sz(32)
+    else:
+        cat_base = sz(28)
 
     items = [p.strip() for p in limitations.split('\n\n') if p.strip()][:3]
 
-    # 安全領域: x=55〜700px, y=145〜615px
-    # right=380px（1080-700=380）で右端 x=700px を守る
-    # 185px間隔: main1行+sub1行≈103px (25+25px余裕)、main2行+sub1行≈155px (15px余裕)
     ITEM_TOPS = [145, 330, 515]
 
     def _lim_item(num, text, top_px):
@@ -610,7 +623,7 @@ def s6_critical(summary: dict) -> str:
         return (
             f'<div style="position:absolute;top:{top_px}px;left:55px;right:380px;">'
             f'<div style="display:flex;align-items:flex-start;gap:16px;">'
-            f'<div style="flex-shrink:0;font-family:{F_HEAD};font-size:42px;'
+            f'<div style="flex-shrink:0;font-family:{F_HEAD};font-size:{sz(42)}px;'
             f'font-weight:900;color:#1C2C73;line-height:1.40;white-space:nowrap;">{num}.</div>'
             f'<div class="text-block">'
             f'<div style="font-family:{F_BODY};font-size:{lim_base}px;font-weight:800;'
@@ -626,9 +639,6 @@ def s6_critical(summary: dict) -> str:
         for i in range(len(items))
     )
 
-    # 吹き出し内: 安全域 x=90〜650px / y=700〜1040px → 内側40px余白
-    # text zone: left=130px(90+40), right=470px(1080-610=470), top=740px(700+40)
-    # height=260px(1000-740) で justify-content:center → 吹き出し縦中央に寄せる
     cat_paras = [p.strip() for p in cat_comment.split('\n\n') if p.strip()]
     cat_parts = []
     for i, para in enumerate(cat_paras):
@@ -636,7 +646,7 @@ def s6_critical(summary: dict) -> str:
             _red_emph(_nowrap_jp(ln.strip()))
             for ln in para.split('\n') if ln.strip()
         )
-        mb = 'margin-bottom:12px;' if i < len(cat_paras) - 1 else ''
+        mb = 'margin-bottom:10px;' if i < len(cat_paras) - 1 else ''
         cat_parts.append(f'<div style="{mb}">{lines_html}</div>')
     cat_html = ''.join(cat_parts)
 
@@ -650,12 +660,12 @@ def s6_critical(summary: dict) -> str:
 
   {lim_rows}
 
-  <!-- 吹き出し: top=740(700+40), left=130(90+40), right=470(1080-610), height=340px -->
-  <!-- padding-top:20px で内容を下にシフト、flex-start で自然な積み方 -->
+  <!-- 吹き出し: overflow:hidden で QA の container_clipping 検出が機能する -->
   <div style="position:absolute;top:740px;left:130px;right:470px;height:340px;
+              overflow:hidden;
               display:flex;flex-direction:column;justify-content:flex-start;padding-top:20px;">
-    <div style="font-family:{F_HEAD};font-size:23px;font-weight:900;
-                color:#1C2C73;margin-bottom:12px;letter-spacing:0.04em;">結果の読み方</div>
+    <div style="font-family:{F_HEAD};font-size:{sz(23)}px;font-weight:900;
+                color:#1C2C73;margin-bottom:10px;letter-spacing:0.04em;">結果の読み方</div>
     <div class="text-block" style="font-family:{F_HOOK};font-size:{cat_base}px;font-weight:700;
                 color:#111111;line-height:1.55;">
       {cat_html}
@@ -663,28 +673,18 @@ def s6_critical(summary: dict) -> str:
   </div>
 
 </div>"""
-    return _html_page(div, emph_red_px=42)
+    return _html_page(div, emph_red_px=sz(42))
 
 
-def s7_takehome(summary: dict) -> str:
-    """Slide 7: Take Home Message（紺背景・白文字・黄色強調）
-    背景レイアウト（全て背景画像）:
-      「Take Home Message」見出し + 通知アイコン y≈75-170px
-      右上線形装飾 x≈780px〜 / y≈200-550px
-      右下ネコ x≈780px〜 / y≈900px〜
-      フッター y≈1295px
-    本文安全域: x=70〜850px, y=240〜790px
-    本文ブロック: left=120px, right=240px（幅720px、中央寄りで左揃え）
-    禁止事項: overflow:hidden / text-overflow:ellipsis / 背景要素の重複描画
-    サイズ設計:
-      base=46px（white line-height 1.38 → 63.5px > emph_yellow 54px ✓）
-    """
+def s7_takehome(summary: dict, font_scale: float = 1.0) -> str:
+    """Slide 7: Take Home Message（紺背景・白文字・黄色強調）"""
+    sz = lambda n, mn=14: max(mn, round(n * font_scale))
     take_home      = summary.get("take_home", "")
     citation       = summary.get("citation", "")
     take_home_note = summary.get("take_home_note", "")
 
-    base = 46   # 白文字
-    emph = 54   # 黄色強調（46×1.38=63.5 > 54 ✓）
+    base = sz(46)
+    emph = sz(54)
 
     content_html = _build_section(
         take_home, emph, para_gap=36, emph_fn=_yellow_emph
@@ -696,40 +696,44 @@ def s7_takehome(summary: dict) -> str:
         if bg else "background:#1C2C73;"
     )
 
-    # 下部テキスト: note（任意）→ citation
-    # フッター y≈1295px を避けるため citation は top=1090px・font-size=20px に抑える
-    # 右下ネコ x≈780px〜 を避け right=420px
+    # right=300px: 幅=1080-120-300=660px、右下ネコ x≈780px の手前に収まる
+    # take_home_note は _fmt で自然な改行を挿入してから nowrap 保護
+    note_size = sz(22)
+    cite_size = sz(20)
     bottom_html = ""
     if take_home_note and citation:
+        note_fmt = _fmt(take_home_note, 22)
         bottom_html = (
-            f'<div style="position:absolute;top:1080px;left:120px;right:420px;'
-            f'font-family:{F_BODY};font-size:22px;font-weight:500;'
+            f'<div class="text-block" style="position:absolute;top:1075px;left:120px;right:300px;'
+            f'font-family:{F_BODY};font-size:{note_size}px;font-weight:500;'
             f'color:rgba(255,255,255,0.65);line-height:1.5;">'
-            f'{_nowrap_jp(take_home_note)}</div>'
-            f'<div style="position:absolute;top:1130px;left:120px;right:420px;'
-            f'font-family:{F_BODY};font-size:20px;font-weight:500;'
+            f'{note_fmt}</div>'
+            f'<div style="position:absolute;top:1130px;left:120px;right:300px;'
+            f'font-family:{F_BODY};font-size:{cite_size}px;font-weight:500;'
             f'color:rgba(255,255,255,0.50);line-height:1.5;">'
             f'{_nowrap_jp(citation)}</div>'
         )
     elif citation:
         bottom_html = (
-            f'<div style="position:absolute;top:1090px;left:120px;right:420px;'
-            f'font-family:{F_BODY};font-size:20px;font-weight:500;'
+            f'<div style="position:absolute;top:1090px;left:120px;right:300px;'
+            f'font-family:{F_BODY};font-size:{cite_size}px;font-weight:500;'
             f'color:rgba(255,255,255,0.50);line-height:1.5;">'
             f'{_nowrap_jp(citation)}</div>'
         )
     elif take_home_note:
+        note_fmt = _fmt(take_home_note, 22)
         bottom_html = (
-            f'<div style="position:absolute;top:1120px;left:120px;right:420px;'
-            f'font-family:{F_BODY};font-size:22px;font-weight:500;'
+            f'<div class="text-block" style="position:absolute;top:1110px;left:120px;right:300px;'
+            f'font-family:{F_BODY};font-size:{note_size}px;font-weight:500;'
             f'color:rgba(255,255,255,0.65);line-height:1.5;">'
-            f'{_nowrap_jp(take_home_note)}</div>'
+            f'{note_fmt}</div>'
         )
 
     div = f"""<div style="width:1080px;height:1350px;position:relative;overflow:hidden;{bg_style}">
 
-  <!-- 本文: 左揃え・中央寄りブロック left=120px, right=240px（幅720px）/ flex縦中央 -->
+  <!-- 本文: left=120px, right=240px（幅720px）/ flex縦中央 / overflow:hidden でQA検出 -->
   <div style="position:absolute;top:240px;left:120px;right:240px;height:550px;
+              overflow:hidden;
               display:flex;flex-direction:column;justify-content:center;">
     <div class="text-block" style="font-family:{F_HEAD};font-size:{base}px;font-weight:900;
                 color:#ffffff;line-height:1.38;text-align:left;">
@@ -754,7 +758,8 @@ SLIDE_GENERATORS = {
 }
 
 
-def _render_html_to_png(html: str, output_path: str) -> None:
+def _render_html_to_png(html: str, output_path: str, slide_num: int = 0) -> list:
+    """HTML を PNG にレンダリングし、QA 問題リストを返す（空 = 合格）。"""
     from playwright.sync_api import sync_playwright
 
     with tempfile.NamedTemporaryFile(
@@ -763,6 +768,7 @@ def _render_html_to_png(html: str, output_path: str) -> None:
         f.write(html)
         tmp = f.name
 
+    issues = []
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch()
@@ -770,26 +776,60 @@ def _render_html_to_png(html: str, output_path: str) -> None:
             page.goto(f"file://{tmp}")
             page.wait_for_load_state("networkidle")
 
-            # テキスト切れチェック: .text-block が y=1350px を超えていないか確認
-            clipped = page.evaluate("""() => {
+            issues = page.evaluate("""() => {
                 const PAGE_H = 1350;
-                return Array.from(document.querySelectorAll('.text-block')).filter(el => {
+                const issues = [];
+
+                // 1. canvas overflow: .text-block が 1350px を超えていないか
+                for (const el of document.querySelectorAll('.text-block')) {
                     const r = el.getBoundingClientRect();
-                    return r.bottom > PAGE_H + 2 && r.width > 0;
-                }).map(el => ({
-                    text: el.textContent.trim().substring(0, 50),
-                    bottom: Math.round(el.getBoundingClientRect().bottom)
-                }));
+                    if (r.bottom > PAGE_H + 2 && r.width > 0) {
+                        issues.push({
+                            type: 'canvas_overflow',
+                            text: el.textContent.trim().slice(0, 50),
+                            bottom: Math.round(r.bottom)
+                        });
+                    }
+                }
+
+                // 2. container_clipping: max-height 指定の overflow:hidden コンテナ
+                // (外側の position:relative ラッパーは max-height を持たないので除外される)
+                for (const el of document.querySelectorAll('div[style]')) {
+                    const inlineStyle = el.getAttribute('style') || '';
+                    if (!inlineStyle.includes('max-height')) continue;
+                    const computed = window.getComputedStyle(el);
+                    if (computed.overflow !== 'hidden') continue;
+                    if (el.clientHeight === 0) continue;
+                    // 10px 以上の差がある場合のみ問題とする（端数誤差を除外）
+                    if (el.scrollHeight > el.clientHeight + 10) {
+                        issues.push({
+                            type: 'container_clipping',
+                            text: el.textContent.trim().slice(0, 50),
+                            scrollH: el.scrollHeight,
+                            clientH: el.clientHeight,
+                            clipped: el.scrollHeight - el.clientHeight
+                        });
+                    }
+                }
+
+                return issues;
             }""")
-            if clipped:
-                print(f"\n  [WARN] テキスト切れ検出:")
-                for item in clipped:
-                    print(f"    '{item['text']}' → bottom={item['bottom']}px")
 
             page.screenshot(path=output_path, clip={"x": 0, "y": 0, "width": 1080, "height": 1350})
             browser.close()
     finally:
         os.unlink(tmp)
+
+    for issue in issues:
+        if issue["type"] == "canvas_overflow":
+            print(f"\n  [QA] canvas_overflow: '{issue['text']}' bottom={issue['bottom']}px")
+        elif issue["type"] == "container_clipping":
+            print(f"\n  [QA] container_clipping: '{issue['text'][:30]}' clipped={issue['clipped']}px")
+
+    return issues
+
+
+_FONT_SCALES = [1.0, 0.88, 0.78, 0.70]
 
 
 def generate_carousel(summary: dict, output_dir: str = ".") -> list:
@@ -797,14 +837,63 @@ def generate_carousel(summary: dict, output_dir: str = ".") -> list:
     out.mkdir(parents=True, exist_ok=True)
     pmid = summary.get("pmid", "unknown")
 
+    qa_log = []
     paths = []
+
     for slide_num, generator in sorted(SLIDE_GENERATORS.items()):
-        html = generator(summary)
         path = str(out / f"pmid_{pmid}_slide{slide_num}.png")
+        slide_qa = {
+            "slide": slide_num,
+            "passed": False,
+            "issues": [],
+            "action": "none",
+            "retries": 0,
+        }
+
         print(f"[BG] Rendering slide {slide_num}...", end=" ", flush=True)
-        _render_html_to_png(html, path)
-        print("done")
+
+        for attempt, scale in enumerate(_FONT_SCALES):
+            html = generator(summary, font_scale=scale)
+            issues = _render_html_to_png(html, path, slide_num=slide_num)
+
+            if not issues:
+                slide_qa["passed"] = True
+                slide_qa["retries"] = attempt
+                slide_qa["action"] = "none" if scale == 1.0 else f"font_scale_{scale:.2f}"
+                suffix = f" (scale={scale:.2f})" if scale < 1.0 else ""
+                print(f"done{suffix}")
+                break
+
+            slide_qa["issues"] = [
+                f"{i['type']}:{i.get('text','')[:30]}" for i in issues
+            ]
+            slide_qa["retries"] = attempt + 1
+
+            if attempt < len(_FONT_SCALES) - 1:
+                next_scale = _FONT_SCALES[attempt + 1]
+                print(f"[QA retry→{next_scale:.2f}]", end=" ", flush=True)
+            else:
+                print(f"FAILED")
+
+        qa_log.append(slide_qa)
         paths.append(path)
+
+    # QA ログ保存
+    qa_path = str(out / f"pmid_{pmid}_qa.json")
+    with open(qa_path, "w", encoding="utf-8") as f:
+        json.dump(qa_log, f, ensure_ascii=False, indent=2)
+    print(f"[QA] ログ保存: {qa_path}")
+
+    # QA 失敗時は投稿をブロック
+    failed = [q for q in qa_log if not q["passed"]]
+    if failed:
+        details = "; ".join(
+            f"Slide{q['slide']}: {q['issues']}" for q in failed
+        )
+        raise RuntimeError(
+            f"[Layout QA失敗] スライド{[q['slide'] for q in failed]}で"
+            f"3回リトライ後もQA不合格。投稿をブロックします。\n詳細: {details}"
+        )
 
     return paths
 
