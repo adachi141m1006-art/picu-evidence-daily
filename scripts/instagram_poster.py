@@ -18,6 +18,7 @@ import os
 import re
 import ssl
 import time
+from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import urlopen, Request
 
@@ -63,8 +64,12 @@ def upload_image(image_url, caption=None, is_carousel_item=True,
     data = urlencode(params).encode()
     req = Request(url, data=data, method="POST")
 
-    with urlopen(req, timeout=30, context=_SSL_CTX) as resp:
-        result = json.loads(resp.read())
+    try:
+        with urlopen(req, timeout=30, context=_SSL_CTX) as resp:
+            result = json.loads(resp.read())
+    except HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Instagram API {e.code}: {body}") from e
 
     container_id = result.get("id")
     print(f"[Instagram] Image container created: {container_id}")
@@ -84,8 +89,12 @@ def create_carousel(children_ids, caption, token=None, account_id=None):
     data = urlencode(params).encode()
     req = Request(url, data=data, method="POST")
 
-    with urlopen(req, timeout=30, context=_SSL_CTX) as resp:
-        result = json.loads(resp.read())
+    try:
+        with urlopen(req, timeout=30, context=_SSL_CTX) as resp:
+            result = json.loads(resp.read())
+    except HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Instagram API {e.code}: {body}") from e
 
     carousel_id = result.get("id")
     print(f"[Instagram] Carousel container created: {carousel_id}")
@@ -103,8 +112,12 @@ def publish(container_id, token=None, account_id=None):
     data = urlencode(params).encode()
     req = Request(url, data=data, method="POST")
 
-    with urlopen(req, timeout=30, context=_SSL_CTX) as resp:
-        result = json.loads(resp.read())
+    try:
+        with urlopen(req, timeout=30, context=_SSL_CTX) as resp:
+            result = json.loads(resp.read())
+    except HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Instagram API {e.code}: {body}") from e
 
     media_id = result.get("id")
     print(f"[Instagram] Published! Media ID: {media_id}")
@@ -120,8 +133,12 @@ def check_container_status(container_id, token):
     url = f"{GRAPH_API_BASE}/{container_id}?{urlencode(params)}"
     req = Request(url)
 
-    with urlopen(req, timeout=30, context=_SSL_CTX) as resp:
-        result = json.loads(resp.read())
+    try:
+        with urlopen(req, timeout=30, context=_SSL_CTX) as resp:
+            result = json.loads(resp.read())
+    except HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Instagram API {e.code}: {body}") from e
 
     return result.get("status_code")
 
