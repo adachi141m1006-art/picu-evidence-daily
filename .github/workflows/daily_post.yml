@@ -7,7 +7,12 @@ on:
   schedule:
     # 毎日 19:00 UTC = 翌04:00 JST
     - cron: '0 19 * * *'
-  workflow_dispatch:  # 手動実行も可能
+  workflow_dispatch:
+    inputs:
+      pmid:
+        description: '特定PMIDを処理（空白=自動選択）'
+        required: false
+        default: ''
 
 jobs:
   generate-and-post:
@@ -42,7 +47,12 @@ jobs:
           FB_APP_ID: ${{ secrets.FB_APP_ID }}
           FB_APP_SECRET: ${{ secrets.FB_APP_SECRET }}
           LINE_NOTIFY_TOKEN: ${{ secrets.LINE_NOTIFY_TOKEN }}
-        run: python scripts/pipeline.py --auto --output-dir .
+        run: |
+          PMID_ARG=""
+          if [ -n "${{ github.event.inputs.pmid }}" ]; then
+            PMID_ARG="--pmid ${{ github.event.inputs.pmid }}"
+          fi
+          python scripts/pipeline.py --auto --output-dir . $PMID_ARG
 
       - name: Upload artifacts
         if: always()
