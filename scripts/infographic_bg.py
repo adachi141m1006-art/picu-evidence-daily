@@ -459,15 +459,17 @@ def s3_background(summary: dict, font_scale: float = 1.0) -> str:
 
     div = f"""<div style="width:1080px;height:1350px;position:relative;overflow:hidden;{bg_style}">
 
-  <!-- 背景テキスト (y=160~: 見出し「背景」下40px余白) -->
+  <!-- 背景テキスト (y=160~670: 見出し「背景」下 / max-height で「対象」heading zone y=715 に侵入しない) -->
   <div class="text-block" style="position:absolute;top:160px;left:64px;right:72px;
+              max-height:510px;overflow:hidden;
               font-family:{F_BODY};font-size:{bg_base}px;font-weight:700;
               color:#111111;line-height:1.5;">
     {bg_html}
   </div>
 
-  <!-- 対象テキスト (y=760~: 見出し「対象」下40px余白、右幅を820pxに制限) -->
-  <div class="text-block" style="position:absolute;top:760px;left:84px;right:236px;
+  <!-- 対象テキスト (y=870~: 見出し「対象」y=715-865 の下) -->
+  <div class="text-block" style="position:absolute;top:870px;left:84px;right:236px;
+              max-height:360px;overflow:hidden;
               font-family:{F_BODY};font-size:{pop_base}px;font-weight:700;
               color:#111111;line-height:1.52;">
     {pop_html}
@@ -758,6 +760,17 @@ SLIDE_GENERATORS = {
 }
 
 
+# 背景画像に焼き込まれた見出しの Y 座標範囲
+# .text-block がこの範囲に重なると heading_body_overlap として検出される
+_SLIDE_HEADING_ZONES = {
+    3: [[90, 165], [715, 865]],    # 「背景」 / 「対象」
+    4: [[50, 130], [710, 845]],    # 「PICO」 / 「方法」
+    5: [[38, 155], [638, 758]],    # 「結果」 / 「二次結果」
+    6: [[38, 140]],                # 「批判的吟味」
+    7: [[70, 240]],                # 「Take Home Message」
+}
+
+
 def _render_html_to_png(html: str, output_path: str, slide_num: int = 0) -> list:
     """HTML を PNG にレンダリングし、QA 問題リストを返す（空 = 合格）。"""
     from playwright.sync_api import sync_playwright
@@ -776,8 +789,10 @@ def _render_html_to_png(html: str, output_path: str, slide_num: int = 0) -> list
             page.goto(f"file://{tmp}")
             page.wait_for_load_state("networkidle")
 
-            issues = page.evaluate("""() => {
+            slide_zones_json = json.dumps(_SLIDE_HEADING_ZONES.get(slide_num, []))
+            js_code = """() => {
                 const PAGE_H = 1350;
+                const slideZones = ZONES_PLACEHOLDER;
                 const issues = [];
 
                 // 1. canvas overflow: .text-block が 1350px を超えていないか
@@ -793,14 +808,12 @@ def _render_html_to_png(html: str, output_path: str, slide_num: int = 0) -> list
                 }
 
                 // 2. container_clipping: max-height 指定の overflow:hidden コンテナ
-                // (外側の position:relative ラッパーは max-height を持たないので除外される)
                 for (const el of document.querySelectorAll('div[style]')) {
                     const inlineStyle = el.getAttribute('style') || '';
                     if (!inlineStyle.includes('max-height')) continue;
                     const computed = window.getComputedStyle(el);
                     if (computed.overflow !== 'hidden') continue;
                     if (el.clientHeight === 0) continue;
-                    // 10px 以上の差がある場合のみ問題とする（端数誤差を除外）
                     if (el.scrollHeight > el.clientHeight + 10) {
                         issues.push({
                             type: 'container_clipping',
@@ -812,8 +825,49 @@ def _render_html_to_png(html: str, output_path: str, slide_num: int = 0) -> list
                     }
                 }
 
+                // 3. heading_body_overlap: 背景画像の見出し帯に .text-block が重なっていないか
+                for (const el of document.querySelectorAll('.text-block')) {
+                    const r = el.getBoundingClientRect();
+                    if (r.width === 0 || r.height === 0) continue;
+                    for (const [zTop, zBottom] of slideZones) {
+                        const overlapY = Math.min(r.bottom, zBottom) - Math.max(r.top, zTop);
+                        if (overlapY > 10) {
+                            issues.push({
+                                type: 'heading_body_overlap',
+                                text: el.textContent.trim().slice(0, 40),
+                                zone: {top: zTop, bottom: zBottom},
+                                element: {top: Math.round(r.top), bottom: Math.round(r.bottom)},
+                                overlapY: Math.round(overlapY)
+                            });
+                        }
+                    }
+                }
+
+                // 4. text_block_overlap: .text-block 同士が重なっていないか
+                const textBlocks = Array.from(document.querySelectorAll('.text-block'));
+                for (let i = 0; i < textBlocks.length; i++) {
+                    const r1 = textBlocks[i].getBoundingClientRect();
+                    if (r1.width === 0 || r1.height === 0) continue;
+                    for (let j = i + 1; j < textBlocks.length; j++) {
+                        const r2 = textBlocks[j].getBoundingClientRect();
+                        if (r2.width === 0 || r2.height === 0) continue;
+                        const overlapX = Math.min(r1.right, r2.right) - Math.max(r1.left, r2.left);
+                        const overlapY = Math.min(r1.bottom, r2.bottom) - Math.max(r1.top, r2.top);
+                        if (overlapX > 5 && overlapY > 10) {
+                            issues.push({
+                                type: 'text_block_overlap',
+                                text1: textBlocks[i].textContent.trim().slice(0, 30),
+                                text2: textBlocks[j].textContent.trim().slice(0, 30),
+                                overlapX: Math.round(overlapX),
+                                overlapY: Math.round(overlapY)
+                            });
+                        }
+                    }
+                }
+
                 return issues;
-            }""")
+            }""".replace("ZONES_PLACEHOLDER", slide_zones_json)
+            issues = page.evaluate(js_code)
 
             page.screenshot(path=output_path, clip={"x": 0, "y": 0, "width": 1080, "height": 1350})
             browser.close()
@@ -821,10 +875,19 @@ def _render_html_to_png(html: str, output_path: str, slide_num: int = 0) -> list
         os.unlink(tmp)
 
     for issue in issues:
-        if issue["type"] == "canvas_overflow":
+        t = issue["type"]
+        if t == "canvas_overflow":
             print(f"\n  [QA] canvas_overflow: '{issue['text']}' bottom={issue['bottom']}px")
-        elif issue["type"] == "container_clipping":
+        elif t == "container_clipping":
             print(f"\n  [QA] container_clipping: '{issue['text'][:30]}' clipped={issue['clipped']}px")
+        elif t == "heading_body_overlap":
+            z = issue["zone"]
+            e = issue["element"]
+            print(f"\n  [QA] heading_body_overlap: '{issue['text'][:30]}' "
+                  f"el=({e['top']}-{e['bottom']}) zone=({z['top']}-{z['bottom']}) overlap={issue['overlapY']}px")
+        elif t == "text_block_overlap":
+            print(f"\n  [QA] text_block_overlap: '{issue['text1'][:20]}' ∩ '{issue['text2'][:20]}' "
+                  f"overlapY={issue['overlapY']}px")
 
     return issues
 
