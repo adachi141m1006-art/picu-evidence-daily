@@ -219,6 +219,11 @@ def generate_caption(summary: dict) -> str:
     year        = summary.get("year", "")
     study_type  = summary.get("study_type", "")
     hashtags    = summary.get("hashtags", [])
+    doi         = summary.get("doi", "")
+    pmid        = summary.get("pmid", "")
+    paper_url   = (f"https://doi.org/{doi}" if doi
+                   else f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" if pmid
+                   else "")
 
     # --- 冒頭フック (hook疑問文 + 論文情報) ---
     hook_block = f"{hook}🤔\n\n今回は{journal} {year}の{study_type}を紹介します📄"
@@ -282,6 +287,7 @@ def generate_caption(summary: dict) -> str:
         lim_block,
         cta_block,
         f"📎 {citation}",
+        paper_url,
         hashtag_str,
     ] if b]
 
