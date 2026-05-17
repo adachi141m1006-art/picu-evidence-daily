@@ -595,16 +595,22 @@ def s6_critical(summary: dict, font_scale: float = 1.0) -> str:
     lim_base = sz(33)
     lim_sub  = sz(28)
 
-    # 吹き出し内テキスト量に応じて動的にフォントサイズを設定
-    # 吹き出し有効高さ: 340px - 20px padding - 35px header = 285px
-    # cat_base × 1.55 × 行数 ≤ 285px
-    cat_text_len = len(_strip_markup(cat_comment))
-    if cat_text_len <= 35:
-        cat_base = sz(36)
-    elif cat_text_len <= 55:
-        cat_base = sz(32)
-    else:
-        cat_base = sz(28)
+    # 吹き出し有効高さ: 340px - 20px padding-top - 35px header = 285px
+    # コンテナ幅 480px - 内部余白 ≈ 440px 有効
+    # 日本語1文字 ≈ font_size px → chars_per_line = 440 / font_size
+    _BUBBLE_W = 440
+    _BUBBLE_H = 285
+    _cat_lines = [l for l in _strip_markup(cat_comment).split('\n') if l.strip()]
+
+    def _est_vlines(font_px: int) -> int:
+        cpl = max(1, _BUBBLE_W // font_px)
+        return sum(max(1, -(-len(l) // cpl)) for l in _cat_lines)
+
+    cat_base = sz(20)
+    for _fv in (36, 32, 28, 24, 20):
+        if _est_vlines(_fv) * _fv * 1.55 <= _BUBBLE_H:
+            cat_base = sz(_fv)
+            break
 
     items = [p.strip() for p in limitations.split('\n\n') if p.strip()][:3]
 
@@ -662,8 +668,8 @@ def s6_critical(summary: dict, font_scale: float = 1.0) -> str:
 
   {lim_rows}
 
-  <!-- 吹き出し: overflow:hidden で QA の container_clipping 検出が機能する -->
-  <div style="position:absolute;top:740px;left:130px;right:470px;height:340px;
+  <!-- 吹き出し: height+max-height 両方指定で QA の container_clipping 検出が機能する -->
+  <div style="position:absolute;top:740px;left:130px;right:470px;height:340px;max-height:340px;
               overflow:hidden;
               display:flex;flex-direction:column;justify-content:flex-start;padding-top:20px;">
     <div style="font-family:{F_HEAD};font-size:{sz(23)}px;font-weight:900;
